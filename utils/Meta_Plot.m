@@ -2,7 +2,8 @@
 %
 %% *author: Muhan Zhang, Washington University in St. Louis
 
-Model = {'iJO1366','iAF1260b','iAF692','iHN637','iIT341','iAB_RBC_283'};
+% Model = {'iJO1366','iAF1260b','iAF692','iHN637','iIT341','iAB_RBC_283'};
+Model = {'iJO1366','iAF1260b','iAF692','iIT341','iAB_RBC_283'};
 Method = ['CMM','BS','SHC','HPLSF','FM','Katz','CN'];
 MethodNum = [1:1:7];
 Color = {'r','b',[248,147,29]/255,'c','m','g',[20,68,106]/255, 'k'};
@@ -17,7 +18,8 @@ cd ../result/
 close all;
 
 AUC = zeros(length(MethodNum), length(Model));
-for mo = 1:6
+% for mo = 1:6
+for mo = 1:5
     model = Model{mo};
     R = {};
     for me = 1:length(MethodNum)
@@ -26,7 +28,7 @@ for mo = 1:6
     end
     missingNumber = R{1}.missingNumber;
     
-    for runthis = 1:0
+    for runthis = 1:1
     F1 = figure(mo);    %match number under different testnumber
     figure('Color',[1 1 1]);
     box on;
@@ -44,10 +46,10 @@ for mo = 1:6
     ylabel('Number of recovered reactions','Fontsize',w1)
     title(model,'Fontsize',w1,'Interpreter','none');
     set(gca,'linewidth',1,'fontsize',w1,'xtick',missingNumber);
-    axis([missingNumber(1) missingNumber(end) -inf inf]);
+%     axis([missingNumber(1) missingNumber(end) -inf inf]);
     mkdir Figures/;
     cd Figures/;
-    evalc(sprintf('export_fig RM_%s -pdf -transparent -c[Inf,25,Inf,10]',Model{mo}));  % need to install export_fig
+%     evalc(sprintf('export_fig RM_%s -pdf -transparent -c[Inf,25,Inf,10]',Model{mo}));  % need to install export_fig
     cd ..;
     end
     

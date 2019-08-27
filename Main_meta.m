@@ -5,7 +5,7 @@
 clear all;
 
 % mo: the model number, here a model means a reconstructed metabolic network
-for mo = 3:3
+for mo = [6]
         mo
     switch mo
         case 1
@@ -41,19 +41,24 @@ for mo = 3:3
     
     numOfExperiment = 1;  % number of independent experiments
 
-    % Method--1: CMM  2: BS  3: SHC  4: HPLSF  5: FM  6: Katz  7: CN  (8: LR  9: NN  10: DPP, not included in paper)
-    Method = [1] % modify this list to compare more methods
+    % Method--0: SCCMM  1: CMM  2: BS  3: SHC  4: HPLSF  5: FM  6: Katz  7: CN  (8: LR  9: NN  10: DPP, not included in paper)
+    Method = [0]; % modify this list to compare more methods
 
     missingNumber = [200]  % Overwrites the default 25:25:200 or 50:50:400. To experiment under different missing numbers, comment this line
 
     for md = 1:length(Method)
         method = Method(md)
+%         if exist(sprintf('result/%s_%d.mat',model,method), 'file') == 2
+%                     disp 'Skipping...'
+%                     continue
+%                 end
         len_missingNumber = length(missingNumber);
         Num_of_matched_reactions = zeros(len_missingNumber,numOfExperiment);
         Num_of_selected_reactions = zeros(len_missingNumber,numOfExperiment);
         Average_guess_match_num = zeros(len_missingNumber,numOfExperiment);
         AUC_of_Reaction_Prediction = zeros(len_missingNumber,numOfExperiment);
         for change_missingNumber = 1:len_missingNumber
+            
             missnumber = missingNumber(change_missingNumber)  % the number of missing hyperlinks in the current iteration
             rseed = 2732*(missnumber^2-1);
 
@@ -81,6 +86,8 @@ for mo = 3:3
                 % Lambda: the 1/0 indicator vector indicating if each test hyperlink is predicted positive
                 % scores: the soft indicator vector recording the confidence score of each test hyperlink being positive
                 switch method
+                    case 0
+                        [Lambda, scores] = HLpredict(train,test,missnumber,'SCCMM',ith_experiment,labels); 
                     case 1
                         [Lambda,scores] = HLpredict(train,test,missnumber,'CMM',ith_experiment,labels);
                     case 2
@@ -102,7 +109,7 @@ for mo = 3:3
                     case 10
                         [Lambda,scores] = HLpredict(train,test,missnumber,'DPP',ith_experiment,labels);
                 end
-
+                
                 predictions = test_names(Lambda');
                 match = strcmp(repmat(missing_names,1,size(predictions,2)),repmat(predictions,size(missing_names,1),1)); 
                 num_of_matched_reactions = nnz(match) % see how many predictions are real missing reactions
@@ -144,7 +151,7 @@ for mo = 3:3
         std_AUC = std(AUC_of_Reaction_Prediction,0,2);
         average_match_num = mean(Num_of_matched_reactions,2)
         std_match_num = std(Num_of_matched_reactions,0,2);
-        %sound(sin(2*pi*25*(1:4000)/100));  % make a sound in the end
+        sound(sin(2*pi*25*(1:4000)/100));  % make a sound in the end
 
         %% save results
         save(sprintf('result/%s_%d.mat',model,method),'average_match_num', 'std_match_num', 'average_guess_match_num', 'std_guess_match_num', 'average_AUC', 'std_AUC','average_recall','std_recall','average_precision','std_precision','missingNumber');

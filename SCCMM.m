@@ -1,4 +1,4 @@
-function [Lambda,scores] = CMM(hltrain,hltest,num_prediction,k,test_labels)
+function [Lambda,scores] = SCCMM(hltrain,hltest,num_prediction,k,test_labels)
 %  Usage: Main program of the Coordinated Matrix Minimization (CMM) algorithm for hyperlink prediction.
 %  --Input--
 %  hltrain: observed hyperlink columns (training hyperlinks)
@@ -14,8 +14,8 @@ function [Lambda,scores] = CMM(hltrain,hltest,num_prediction,k,test_labels)
 addpath(genpath('software/symnmf-master'));
 
 if k == 'cv'
-    if size(hltrain, 1) > 100  % if hypernetwork is large, set k to default 30 to save time
-        k = 10; 
+    if size(hltrain, 1) > 1000  % if hypernetwork is large, set k to default 30 to save time
+        k = 30; 
     else   % otherwise, use cross validation to select k
         % Note that cross validation is tricky for transductive learning, not necessarily useful
         K = [10,20,30];
@@ -40,7 +40,6 @@ if k == 'cv'
         aNMATCH = mean(NMATCH,2);
         [~,I] = max(aNMATCH);  % use match number as cv criterion
         k = K(I);
-        k
     end
 end
 
@@ -61,6 +60,7 @@ function [nmatch, auc, scores, Lambda] = optimize(hltrain,hltest,num_prediction,
 %%
 
 A = hltrain * hltrain';  % the observed adjacency matrix
+
 % reshape the test hyperlinks
 [rr,cc] = size(hltest);
 U1 = [];  % matrix of vectorized uu^T
@@ -71,6 +71,16 @@ for i=1:cc
     U1 = [U1, u];
 end
 
+[rr,ccS] = size(hltrain);
+S1 = [];  % matrix of vectorized uu^T
+for i=1:ccS
+    s = hltrain(:,i);
+    s = s*s';
+    s = sparse(s(:));
+    S1 = [S1, s];
+end
+
+
 % Optimization Settings
 % settings of linear least square
 opts = optimset('MaxFunEval',inf,'MaxIter',Inf,'display','on','algorithm','interior-point');
@@ -79,7 +89,7 @@ params = {}
 params.maxiter = 100;
 params.debug = 0;
 % global EM settings
-max_iter = 10;  % maximum number of EM iterations
+max_iter = 100;  % maximum number of EM iterations
 res = 100000;  % the current objective value
 
 % optimization begins
@@ -92,23 +102,43 @@ for iter = 1:max_iter
     Ai = A + (hltest*diag(scores)*hltest');  % A + U\Lambda U^T at ith iteration
     
     % symnnmf, the M step
+    tic()
     if iter == 1
         [W,~,res0] = symnmf_newton(Ai,k,params);
     else
         params.Hinit = W;  % if not the first iteration, optimize W starting from the old W
         [W,~,res0] = symnmf_newton(Ai,k,params);
     end
+    disp 'SNMF:'
+    toc()
     WWT = W*W';
     
     % least square, the E step
     dA = WWT-A;
-    [scores,res] = lsqlin(U1,dA(:),[],[],[],[],zeros(cc,1),ones(cc,1),[],opts);
-
+    lu = optimvar('lu', size(hltest, 2), 'lowerBound', 0, 'upperBound', 1);
+    lh = optimvar('lh', size(hltrain, 2), 'lowerBound', 0, 'upperBound', 1);
+    problem = optimproblem;
+    obj1 = fcn2optimexpr(@norm, (A(:) - U1 * lu - S1 * lh), 'fro');
+    obj2 = fcn2optimexpr(@norm, (dA(:) - U1 * lu), 'fro');
+    obj3 = fcn2optimexpr(@norm, lh, 1);
+    problem.Objective = obj1 + obj2 + obj3;
+    l0.lu = zeros(cc, 1);
+    l0.lh = zeros(ccS, 1);
+    tic()
+    [scores, res] = solve(problem, l0);
+%     res = evaluate(obj2, scores);
+    disp 'solve:'
+    toc()
+    scores = scores.lu;
+%     [scores,res] = lsqlin(U1,dA(:),[],[],[],[],zeros(cc,1),ones(cc,1),[],opts);
+    
     % results of the current iteration
     iter  % show iteration number
     res  % show current res
-    Lambda = zeros(cc,1);
-    [~,I] = sort(scores,1,'descend');
+    Lambda = zeros(cc, 1);
+%     lu = zeros(cc,1);
+%     lh = zeros(ccS, 1);
+    [~, I] = sort(scores, 1, 'descend');
     Lambda(I(1:num_prediction)) = 1;    % only keep hl with top scores
     nmatch = nnz(Lambda'.*test_labels)  % show number of true positive hls
     Nmatch = [Nmatch, nmatch];

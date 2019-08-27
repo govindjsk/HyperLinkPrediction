@@ -30,7 +30,9 @@ A = hltrain * hltrain';   % project the hyperlinks into the vertex space to form
 method
 switch method
     case 'CMM'
-        [Lambda,scores] = CMM(hltrain,hltest,num_prediction,'cv',test_labels); % pass test_labels to CMM in order to show intermediate results
+        [Lambda, scores] = CMM(hltrain,hltest,num_prediction,10,test_labels); % pass test_labels to CMM in order to show intermediate results 
+    case 'SCCMM'
+        [Lambda,scores] = SCCMM(hltrain,hltest,num_prediction,10,test_labels); % pass test_labels to CMM in order to show intermediate results
     case 'FM' 
         [Lambda,scores] = FM(hltrain,hltest,8,ith_experiment,num_prediction); % use the default k=8 in FM, not very sensitive to k
     case 'CN'
